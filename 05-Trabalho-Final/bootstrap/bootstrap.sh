@@ -407,6 +407,10 @@ etapa_obs() {
 
   obs_tf_init "$BUCKET"
   antes="$(obs_output instance_id)"
+  # Liga ANTES do apply: o plan lê a EC2 já com o IP público de volta e não vê
+  # diferença nenhuma. O IP privado não muda num stop/start, então o SSM
+  # otlp-endpoint continua valendo e as métricas do Prometheus são preservadas.
+  [ -z "$antes" ] || ec2_ligar_se_parada "$antes" "$OBS_NAME"
   tf_stack "$OBS_TF_DIR" obs apply -auto-approve -input=false -compact-warnings \
     -var "config_bucket=$BUCKET" >&2 || \
     die "o terraform apply da observabilidade falhou." \

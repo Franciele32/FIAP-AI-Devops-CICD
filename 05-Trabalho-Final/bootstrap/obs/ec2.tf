@@ -1,11 +1,13 @@
 # EC2 com OTel Collector, Prometheus, Loki, Jaeger e Grafana em Docker Compose,
 # o mesmo desenho da Aula 5 (04-GenAIOps/quantum-assistant/ops/cloud).
 resource "aws_instance" "obs" {
-  ami                         = data.aws_ami.ubuntu.id
-  instance_type               = var.instance_type
-  subnet_id                   = local.subnet_id
-  vpc_security_group_ids      = [aws_security_group.obs.id]
-  associate_public_ip_address = true
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = var.instance_type
+  subnet_id              = local.subnet_id
+  vpc_security_group_ids = [aws_security_group.obs.id]
+  # Sem associate_public_ip_address: as subnets Tier=Public da fiap-lab ja dao IP
+  # publico (MapPublicIpOnLaunch=true). Declarar "true" faria o Terraform RECRIAR a
+  # EC2 parada pelo Academy (parada ela nao tem IP publico e o provider le "false").
   # LabInstanceProfile: a unica permitida no Learner Lab; da SSM (sem SSH) e S3.
   iam_instance_profile = "LabInstanceProfile"
 

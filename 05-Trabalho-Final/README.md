@@ -7,7 +7,8 @@ CONVENÇÃO DESTE README (nota para o professor, não aparece renderizada)
   make validar 57 s, pipeline verde 3097623060 (590 s), pipeline sem mudança 3097640184 (315 s),
   tempos por stage dos pipelines 3097623060 e 3097640184, make destroy-ambientes 106 s rc=0 (dev 7 + prod 9 destroyed),
   checkov no runner 29 testes / 14 falhas (aba Tests 195 / 14).
-  CONFIRMAR-SAIDA restantes = ainda não medidos (destroy-obs e destroy-runner, telas do Grafana, log de boot da EC2, custo).
+  Rodada 2 (2026-11-21): telas do Grafana (prints 08 e 09), log de boot da EC2 (get-console-output) e custo (~US$ 0,197/h pela Price List) medidos.
+  CONFIRMAR-SAIDA restantes = ainda não medidos (destroy-obs e destroy-runner).
 - Os prints deste trabalho são Modo A (entrega do grupo): lista fechada 01 a 04 em prints/.
 - Imagens de guia que faltam ficam como NOVA-IMAGEM, invisíveis ao aluno.
 -->
@@ -453,8 +454,7 @@ Ctrl+clique (Cmd+clique no Mac) no link para abrir no navegador (é **Settings �
 
 O bootstrap desliga essa chave pela API, mas confiram na tela: ligada, o GitLab pode mandar os jobs para os runners compartilhados dele, que não têm credencial da sua conta AWS, e o pipeline quebra no `terraform init`. É a mesma chave do [passo 12 do Lab 02.1](../02-Ansible/01-provisionando-gitlab-runner/README.md#passo-12).
 
-<!-- NOVA-IMAGEM: img/00-runners-instance-off.png | capturar: Settings > CI/CD > Runners, aba Instance, com "Instance runners are turned off" e o qc-runner-tf-ai verde em Assigned project runners | depois de salvar o arquivo, descomente a linha abaixo -->
-<!-- ![Tela de runners do projeto trabalho-final-ai: o runner qc-runner-tf-ai online e os instance runners desligados](img/00-runners-instance-off.png) -->
+![Settings, CI/CD, Runners do projeto, aba Instance selecionada: a chave Turn on instance runners for this project desligada e a mensagem Instance runners are turned off](img/00-runners-instance-off.png)
 
 </dd>
 </dl>
@@ -515,6 +515,8 @@ make links grafana
 <dd>
 
 Ctrl+clique (Cmd+clique no Mac) no link para abrir no navegador. Na tela de login, **Email or username** = `admin`, **Password** = a senha do passo 4, e clique em **Log in**.
+
+![Tela de login do Grafana: Welcome to Grafana, campos Email or username e Password e o botão Log in](img/00-grafana-login.png)
 
 **Esperado:** o painel **Trabalho Final - Assistente** abre, ainda vazio (nenhum ambiente subiu). Deixem a aba aberta: ela volta no Requisito 9.
 
@@ -1863,7 +1865,18 @@ ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=qc-rag-dev-001" 
 aws ec2 get-console-output --instance-id "$ID" --latest --output text | tail -40
 ```
 
-As últimas linhas mostram onde o script do kit parou (download do pacote, instalação ou o `curl` no `/health`). <!-- CONFIRMAR-SAIDA --> Corrijam e façam um push novo.
+As linhas do kit começam com `qc-rag bootstrap: inicio ... ambiente=dev release=...`; no fim do `tail` vêm chaves SSH do cloud-init, que podem ser ignoradas. Num boot que deu certo, as últimas linhas do kit são:
+
+> Saída esperada (horários, release e host são os seus):
+>
+> ```text
+> [  OK  ] Started Quantum Commerce -…Rastreio e Politicas (qc-rag).
+> [   56.946196] cloud-init[1183]: curl: (7) Failed to connect to 127.0.0.1 port 8080 after 0 ms: Connection refused
+> [   58.964212] cloud-init[1183]: {"status": "ok", "service": "qc-rag", "ambiente": "dev", "release": "a7ba2ad10505", ...}
+> [   58.968782] cloud-init[1183]: qc-rag bootstrap: OK 2026-11-21T17:19:35+00:00
+> ```
+
+O `curl: (7) ... Connection refused` antes do OK é normal: é a primeira tentativa do kit, antes de o serviço abrir a porta. Sem o `qc-rag bootstrap: OK`, procurem onde o script parou: `apt falhou (tentativa N)` ou `pip falhou (tentativa N)` repetidos são falha de instalação, e `qc-rag bootstrap: o servico nao respondeu /health em 60 s` quer dizer que o assistente não subiu. Corrijam e façam um push novo.
 
 </blockquote>
 </details>
@@ -2095,7 +2108,9 @@ Ctrl+clique (Cmd+clique no Mac) no link para abrir no navegador. O painel **Trab
 
 Olhe o painel **Perguntas por minuto, por ambiente**.
 
-**Esperado:** duas séries, `dev` e `prod`, com picos nos horários em que o pipeline rodou o smoke e a observabilidade, e um ponto a mais na hora das perguntas do grupo. O painel **Total de perguntas no periodo** mostra cada ambiente; no teste de referência, depois de um pipeline e de uma pergunta à mão, eram 7 em dev e 7 em prod: 6 do pipeline (1 do smoke e 5 da observabilidade) mais a pergunta dos passos 23 e 24. Cada pipeline novo soma mais 6. <!-- CONFIRMAR-SAIDA: tela do painel -->
+**Esperado:** duas séries, `dev` (verde) e `prod` (amarela), com picos nos horários em que o pipeline rodou o smoke e a observabilidade, e um ponto a mais na hora das perguntas do grupo. O painel **Total de perguntas no periodo** mostra um número por ambiente, maior que zero. Não esperem um número exato: os dois totais crescem a cada pipeline (o smoke e a observabilidade fazem perguntas) e a cada pergunta do grupo.
+
+![Painel Trabalho Final - Assistente na última hora: Perguntas por minuto, por ambiente, com as séries dev e prod; Latencia p95 por ambiente; Total de perguntas no periodo com um número para dev e outro para prod; Recusas em No data; Traces recentes do qc-rag; e Logs do assistente com o JSON de cada pergunta](img/08-painel-perguntas-por-ambiente.png)
 
 O painel **Recusas (sem fonte para responder)** mostrando `No data` é normal: nenhuma pergunta foi recusada no período.
 
@@ -2117,12 +2132,11 @@ O que observar: a métrica prova que os dois ambientes recebem perguntas e manda
 </dt>
 <dd>
 
-Role até o painel **Logs do assistente (qc-rag)**. Cada linha é uma pergunta; as que começam com `smoke-` e `obs-` são as do pipeline. Para achar a do grupo, use a busca do navegador (Ctrl+F, ou Cmd+F no Mac) com o seu `request_id` (o do passo 23; para lembrar, rode `cat /tmp/request-id-grupo.txt` no terminal). Clique na linha para abri-la. <!-- CONFIRMAR-SAIDA: tela do painel de logs -->
+Role até o painel **Logs do assistente (qc-rag)**. Cada linha é uma pergunta; as que começam com `smoke-` e `obs-` são as do pipeline. O painel se atualiza a cada 10 s e volta a lista para o topo, e só mostra na tela as linhas visíveis: por isso, antes de buscar, desliguem o refresh (no alto, à direita, o seletor **10s** ao lado de **Refresh** → **Off**) e abram o painel sozinho (passem o mouse sobre ele e apertem a tecla `v`, ou menu do painel **⋮** → **View**). Depois usem a busca do navegador (Ctrl+F, ou Cmd+F no Mac) com o seu `request_id` (o do passo 23; para lembrar, rodem `cat /tmp/request-id-grupo.txt` no terminal). Se a busca não achar, rolem o painel: as linhas mais novas ficam em cima. Cliquem na linha para abri-la.
 
 **Esperado:** a linha aberta mostra o log JSON (`"event": "qc.pergunta"`, `"ambiente": "dev"`, `"rota": "policy"`, `"recusou": false`, `"latency_ms"`, `"trace_id"`, `"request_id"`) com o seu `request_id`, o mesmo `trace_id` da resposta do passo 23 e o ambiente `dev`, e embaixo o botão **Ver o trace no Jaeger**.
 
-<!-- NOVA-IMAGEM: img/09-log-request-id.png | capturar: painel Logs do assistente filtrado pelo request_id do grupo, com a linha aberta mostrando request_id, trace_id e o botão "Ver o trace no Jaeger" | depois de salvar o arquivo, descomente a linha abaixo -->
-<!-- ![Painel de logs do Grafana com a linha da pergunta do grupo aberta: request_id, trace_id e o botão Ver o trace no Jaeger](img/09-log-request-id.png) -->
+![Painel Logs do assistente aberto sozinho (View panel) com a linha da pergunta do grupo aberta: o JSON com event qc.pergunta, ambiente dev, rota policy, trace_id e request_id grupo-dev, e embaixo, em Links, o botão Ver o trace no Jaeger](img/09-log-request-id.png)
 
 </dd>
 
@@ -2142,11 +2156,13 @@ Role até o painel **Logs do assistente (qc-rag)**. Cada linha é uma pergunta; 
 
 Na linha de log aberta, clique em **Ver o trace no Jaeger**.
 
-**Esperado:** o Grafana abre o trace (no **Explore**) com 5 spans: `POST /assistant/ask` no topo e, embaixo, as etapas do assistente, `route_intent` (que tipo de pergunta é), `rag.filter_documents` (vigência, loja e permissão), `rag.retrieve` (busca do trecho) e `rag.compose_deterministic` (montagem da resposta). <!-- CONFIRMAR-SAIDA: tela do trace no Grafana --> Clique no span do topo: os atributos mostram `qc.request_id` (o seu), `qc.ambiente = dev` e `qc.release`.
+**Esperado:** o Grafana abre o trace (no **Explore**) com 5 spans: `POST /assistant/ask` no topo e, embaixo dele, as três etapas do assistente, na ordem: `route_intent` (que tipo de pergunta é), `rag.retrieve` (busca do trecho) e `rag.compose_deterministic` (montagem da resposta). O quinto span, `rag.filter_documents` (vigência, loja e permissão), fica recuado **dentro** do `rag.retrieve`: é uma etapa da busca. Clique no span do topo: os atributos mostram `qc.request_id` (o seu), `qc.ambiente = dev` e `qc.release`.
+
+O Jaeger guarda os traces em memória: se o Academy desligou a observabilidade entre as sessões, os traces antigos somem. Se o trace não abrir, façam uma pergunta nova (passo 23) e repitam os passos 26 e 27.
 
 O que observar: o trace mostra a pergunta inteira como uma linha do tempo. É assim que o Diego responde "por que essa resposta demorou?" ou "de onde veio essa fonte?" sem adivinhar.
 
-> 📸 **Print obrigatório** — salvem como `prints/04-trace-observabilidade.png`. Capturem o Grafana com o trace aberto, mostrando o span `POST /assistant/ask` e o atributo `qc.request_id` com o `request_id` do grupo. Sem senha nem token na tela.
+> 📸 **Print obrigatório** — salvem como `prints/04-trace-observabilidade.png`. Capturem o Grafana com o trace aberto, mostrando o span `POST /assistant/ask` e o atributo `qc.request_id` com o `request_id` do grupo. Sem senha nem token na tela. Os traces ficam em memória e somem se o Academy desligou a observabilidade: façam uma pergunta nova antes do print.
 
 </dd>
 </dl>
@@ -2393,7 +2409,7 @@ rm -f ~/.trabalho-final-ai.env
 </dl>
 
 > [!CAUTION]
-> **Não pulem o passo 31.** Com o trabalho no ar ficam ligados 3 EC2 `t3.micro` (1 em dev, 2 em prod), 2 Application Load Balancers, o runner `t3.small` e a observabilidade `t3.medium`, além dos IPs públicos de cada um. Somando, perto de <!-- CONFIRMAR-SAIDA -->**US$ 0,20 por hora, uns US$ 5 por dia esquecido**, descontados do orçamento do Learner Lab. A `t3.medium` da observabilidade é a mais cara: se pararem no meio e forem voltar outro dia, o `make destroy-ambientes`, o `make destroy-obs` e o `make destroy-runner`, mais um novo `make bootstrap` na volta, custam menos que deixar ligada. Nenhum dos três toca na VPC `fiap-lab`: a rede é compartilhada pelos labs e não cobra por hora.
+> **Não pulem o passo 31.** Com o trabalho no ar ficam ligados 3 EC2 `t3.micro` (1 em dev, 2 em prod), 2 Application Load Balancers, o runner `t3.small` e a observabilidade `t3.medium`, além dos IPv4 públicos de cada EC2 e dos ALBs (cada ALB tem um por zona). Somando, perto de **US$ 0,20 por hora, uns US$ 5 por dia esquecido**, descontados do orçamento do Learner Lab. A `t3.medium` da observabilidade é a mais cara: se pararem no meio e forem voltar outro dia, o `make destroy-ambientes`, o `make destroy-obs` e o `make destroy-runner`, mais um novo `make bootstrap` na volta, custam menos que deixar ligada. Nenhum dos três toca na VPC `fiap-lab`: a rede é compartilhada pelos labs e não cobra por hora.
 
 <details>
 <summary><b>💡 Clique para entender: o que cada alvo de destroy executa</b></summary>
