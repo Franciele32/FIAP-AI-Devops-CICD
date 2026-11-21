@@ -8,7 +8,9 @@ CONVENÇÃO DESTE README (nota para o professor, não aparece renderizada)
   tempos por stage dos pipelines 3097623060 e 3097640184, make destroy-ambientes 106 s rc=0 (dev 7 + prod 9 destroyed),
   checkov no runner 29 testes / 14 falhas (aba Tests 195 / 14).
   Rodada 2 (2026-11-21): telas do Grafana (prints 08 e 09), log de boot da EC2 (get-console-output) e custo (~US$ 0,197/h pela Price List) medidos.
-  CONFIRMAR-SAIDA restantes = ainda não medidos (destroy-obs e destroy-runner).
+  Rodada 3 (2026-11-21, R6/R7): bootstrap do zero absoluto 6 min 28 s e 6 min 55 s; make destroy-ambientes 95 s, destroy-obs 48 s,
+  destroy-runner 61 s, make destroy (tudo) 154 s; 2a execução de cada um 11 a 50 s, só mensagens de vazio/não existia.
+  Marcadores de saída a confirmar restantes: nenhum (tudo medido).
 - Os prints deste trabalho são Modo A (entrega do grupo): lista fechada 01 a 04 em prints/.
 - Imagens de guia que faltam ficam como NOVA-IMAGEM, invisíveis ao aluno.
 -->
@@ -51,7 +53,7 @@ Nunca usou terminal? Copie o bloco cinza inteiro, cole no terminal e aperte Ente
 >
 > Saída esperada: o número da conta (12 dígitos), o nome do bucket `base-config-...` e o caminho do `Makefile`. `ExpiredToken` na primeira linha é credencial vencida; `No such file or directory` na última é fork desatualizado. Nos dois casos, refaçam o [Início de aula](../00-create-codespaces/Inicio-de-aula.md).
 >
-> **Tempo estimado: ~3 horas** para quem acompanhou as aulas, contando duas rodadas de correção. A execução pura fica perto de 40 minutos (bootstrap ~8 min, `make validar` ~1 min, primeiro pipeline completo ~10 min, os seguintes ~5 a 10 min, `make destroy-ambientes` ~2 min); o resto é ler as demos-base, escrever o Terraform e os jobs, ler a aba **Tests** e corrigir o que o pipeline apontar. Se dividirem em duas sessões, comecem a segunda pelo `make bootstrap` (religa as EC2 paradas) e pelo `make status` (passo 3).
+> **Tempo estimado: ~3 horas** para quem acompanhou as aulas, contando duas rodadas de correção. A execução pura fica perto de 40 minutos (bootstrap ~7 a 8 min, `make validar` ~1 min, primeiro pipeline completo ~10 min, os seguintes ~5 a 10 min, os três `make destroy-*` ~3 a 4 min); o resto é ler as demos-base, escrever o Terraform e os jobs, ler a aba **Tests** e corrigir o que o pipeline apontar. Se dividirem em duas sessões, comecem a segunda pelo `make bootstrap` (religa as EC2 paradas) e pelo `make status` (passo 3).
 
 ## Principais pontos de aprendizagem
 
@@ -220,7 +222,7 @@ cd /workspaces/FIAP-AI-Devops-CICD/05-Trabalho-Final
 make bootstrap REPO=trabalho-final-ai
 ```
 
-O comando leva **~8 minutos** na primeira vez (7 min 20 s no teste de referência; etapas `1/11` a `11/11` no log) e ~1 min 30 s nas seguintes, quase todos subindo e configurando as EC2 do runner e da observabilidade. **Enquanto ele roda, leiam a [Parte 1](#parte-1---o-módulo-rag-cluster-e-o-raiz) inteira** e abram a [demo Count](../01-Terraform/demos/03-Count/main.tf) no editor: é o código que vocês vão transformar.
+O comando leva **~7 a 8 minutos** na primeira vez (de 6 min 28 s a 7 min 20 s nos testes de referência; etapas `1/11` a `11/11` no log) e ~1 min 30 s nas seguintes, quase todos subindo e configurando as EC2 do runner e da observabilidade. **Enquanto ele roda, leiam a [Parte 1](#parte-1---o-módulo-rag-cluster-e-o-raiz) inteira** e abram a [demo Count](../01-Terraform/demos/03-Count/main.tf) no editor: é o código que vocês vão transformar.
 
 > Saída esperada (o fim; ids, IPs e usuário são os seus):
 >
@@ -2377,9 +2379,9 @@ make destroy-obs
 make destroy-runner
 ```
 
-**Esperado:** o `make destroy-ambientes` leva **~2 minutos** (106 s no teste de referência) e mostra `Destroy complete! Resources: 7 destroyed.` em dev e `Resources: 9 destroyed.` em prod. Cada um dos três termina com `>> Pronto. A rede fiap-lab, o bucket, o projeto GitLab e o seu clone foram mantidos.` <!-- CONFIRMAR-SAIDA: tempo de destroy-obs e destroy-runner --> Se algum for interrompido, rodem o mesmo alvo de novo: o que já foi destruído é pulado.
+**Esperado:** o `make destroy-ambientes` leva **~2 minutos** (95 a 106 s nos testes de referência) e mostra `Destroy complete! Resources: 7 destroyed.` em dev e `Resources: 9 destroyed.` em prod. O `make destroy-obs` leva **~50 s** (48 s) e o `make destroy-runner` **~1 minuto** (61 s). Cada um dos três termina com `>> Pronto. A rede fiap-lab, o bucket, o projeto GitLab e o seu clone foram mantidos.` Se algum for interrompido, rodem o mesmo alvo de novo: o que já foi destruído é pulado. Rodar de novo um alvo que já terminou é seguro: leva de 11 a 50 s e só mostra mensagens de state vazio ou de item que `não existia`.
 
-`make destroy` sozinho, sem hífen, apaga TUDO deste trabalho de uma vez (ambientes, runner e observabilidade).
+`make destroy` sozinho, sem hífen, apaga TUDO deste trabalho de uma vez (ambientes, runner e observabilidade), em ~2 min 30 s (154 s no teste de referência).
 
 </dd>
 

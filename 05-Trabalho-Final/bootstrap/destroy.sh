@@ -123,6 +123,8 @@ destroy_obs() {
   for p in "$SSM_OTLP" "$SSM_OBS_QUERY" "$SSM_GRAFANA"; do
     if ssm_exists "$p"; then
       aws ssm delete-parameter --region "$AWS_REGION" --name "$p" >/dev/null && ok "parâmetro SSM $p apagado"
+    else
+      ok "parâmetro SSM $p não existia"
     fi
   done
   # Só a pasta de configuração deste trabalho no bucket; o bucket fica.
