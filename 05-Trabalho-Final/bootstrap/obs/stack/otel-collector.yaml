@@ -1,0 +1,46 @@
+# Collector do Trabalho Final: recebe OTLP HTTP dos apps qc-rag-<env> e separa os sinais:
+#   traces   -> Jaeger (OTLP gRPC interno do compose)
+#   metricas -> endpoint Prometheus :8889, raspado pelo Prometheus
+#   logs     -> Loki (OTLP nativo do Loki 3)
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Melhor recusar um lote do que o Collector crescer ate o mem_limit e morrer
+  # (o app nao sente: o envio e assincrono e com timeout).
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 200
+    spike_limit_mib: 50
+  batch:
+    timeout: 1s
+
+exporters:
+  otlp_grpc/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+  otlp_http/loki:
+    endpoint: http://loki:3100/otlp
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    # Mantem os nomes como o codigo declara (qc_rag_perguntas_total, qc_rag_latencia_ms_bucket).
+    translation_strategy: UnderscoreEscapingWithoutSuffixes
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_grpc/jaeger]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/loki]

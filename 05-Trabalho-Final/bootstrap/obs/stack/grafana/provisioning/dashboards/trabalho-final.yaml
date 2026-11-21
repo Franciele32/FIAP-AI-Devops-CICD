@@ -1,0 +1,10 @@
+apiVersion: 1
+providers:
+  # allowUiUpdates: false porque o JSON versionado e a fonte da verdade.
+  - name: trabalho-final-ai
+    folder: "Trabalho Final"
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

@@ -1,0 +1,36 @@
+#!/bin/bash
+# Primeiro boot da EC2 qc-obs-tf-ai: instala a AWS CLI v2 (versao pinada) e
+# entrega o controle ao bootstrap.sh do S3, o mesmo que o make bootstrap roda
+# de novo via SSM quando a configuracao muda.
+set -euo pipefail
+exec >>/var/log/qc-obs-bootstrap.log 2>&1
+echo "[user_data] inicio $(date -u +%FT%TZ)"
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -q
+apt-get install -y -q unzip ca-certificates curl
+
+if ! command -v aws >/dev/null 2>&1; then
+  tmp=$(mktemp -d)
+  curl -fsSL -o "$tmp/awscliv2.zip" "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.40.3.zip"
+  unzip -q "$tmp/awscliv2.zip" -d "$tmp"
+  "$tmp/aws/install"
+  rm -rf "$tmp"
+fi
+
+mkdir -p /opt/qc-obs
+{
+  echo "QC_CONFIG_BUCKET=${config_bucket}"
+  echo "QC_CONFIG_PREFIX=${config_prefix}"
+  echo "AWS_REGION=${region}"
+} > /opt/qc-obs/instance.env
+
+# O make bootstrap envia a configuracao ANTES do apply; se mesmo assim faltar,
+# tenta por ate 10 min (o make bootstrap reexecuta via SSM depois).
+for i in $(seq 1 60); do
+  if aws s3 cp --region "${region}" "s3://${config_bucket}/${config_prefix}/bootstrap.sh" /opt/qc-obs/bootstrap.sh; then
+    exec bash /opt/qc-obs/bootstrap.sh
+  fi
+  sleep 10
+done
+echo "[user_data] bootstrap.sh nao encontrado no S3; rode make bootstrap de novo"

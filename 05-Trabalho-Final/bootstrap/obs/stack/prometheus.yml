@@ -1,0 +1,12 @@
+# Intervalo curto de proposito: o teste de observabilidade do pipeline espera a
+# metrica aparecer em segundos, nao em minutos. Em producao, 15-60 s seria o usual.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: otel-collector
+    # honor_labels: mantem job=<service.name> (qc-rag) que o Collector atribui.
+    honor_labels: true
+    static_configs:
+      - targets: ["otel-collector:8889"]

@@ -1,0 +1,99 @@
+#!/bin/bash
+# qc-rag-kit-user-data (marcador: o contrato confere que o user_data veio deste template)
+#
+# Template do KIT (PRONTO, nao precisa mexer). O Terraform preenche 5 variaveis
+# com templatefile() e a EC2 roda este script UMA vez, no primeiro boot:
+#   ambiente      = ${ambiente}
+#   release_id    = ${release_id}
+#   bundle_uri    = ${bundle_uri}
+#   otlp_endpoint = ${otlp_endpoint}
+#   aws_region    = ${aws_region}
+#
+# Sem SSH e sem SSM: tudo que a maquina precisa vem do bundle no S3 (lido com a
+# LabRole do LabInstanceProfile). Se algo falhar, o log fica em
+# /var/log/qc-rag-bootstrap.log e o /health nao responde, entao o Target Group
+# marca a EC2 como unhealthy e o smoke reprova com o motivo.
+set -euo pipefail
+exec > >(tee -a /var/log/qc-rag-bootstrap.log) 2>&1
+echo "qc-rag bootstrap: inicio $(date -Is) ambiente=${ambiente} release=${release_id}"
+
+export DEBIAN_FRONTEND=noninteractive
+# No primeiro boot o unattended-upgrades costuma segurar o lock do apt por 1-2 min:
+# esperar o lock evita o erro "Could not get lock /var/lib/dpkg/lock-frontend".
+APT="apt-get -o DPkg::Lock::Timeout=600 -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold -y -q"
+
+for tentativa in 1 2 3; do
+  if $APT update && $APT install --no-install-recommends python3-venv awscli unzip; then
+    break
+  fi
+  echo "apt falhou (tentativa $tentativa); nova tentativa em 15 s"
+  sleep 15
+done
+
+APP_DIR=/opt/qc-rag/app
+VENV=/opt/qc-rag/venv
+mkdir -p /opt/qc-rag
+id qc-rag >/dev/null 2>&1 || useradd --system --home-dir /opt/qc-rag --shell /usr/sbin/nologin qc-rag
+
+# O bundle e o zip de app/ publicado pelo modulo app-release (aws_s3_object).
+aws s3 cp --region "${aws_region}" "${bundle_uri}" /opt/qc-rag/app.zip
+rm -rf "$APP_DIR"
+mkdir -p "$APP_DIR"
+unzip -q -o /opt/qc-rag/app.zip -d "$APP_DIR"
+
+python3 -m venv "$VENV"
+# OpenTelemetry e opcional para o assistente, mas obrigatorio para o job
+# observabilidade-<env>: se o PyPI falhar 3 vezes, o servico sobe sem telemetria
+# e o /health mostra "telemetria": "off".
+for tentativa in 1 2 3; do
+  if "$VENV/bin/pip" install --no-cache-dir -q -r "$APP_DIR/requirements-otel.txt"; then
+    break
+  fi
+  echo "pip falhou (tentativa $tentativa); nova tentativa em 10 s"
+  sleep 10
+done
+
+cat > /etc/qc-rag.env <<ENVFILE
+AMBIENTE=${ambiente}
+RELEASE_ID=${release_id}
+OTEL_EXPORTER_OTLP_ENDPOINT=${otlp_endpoint}
+OTEL_METRIC_EXPORT_INTERVAL=5000
+PORT=8080
+PYTHONDONTWRITEBYTECODE=1
+PYTHONUNBUFFERED=1
+ENVFILE
+
+chown -R qc-rag:qc-rag /opt/qc-rag
+
+cat > /etc/systemd/system/qc-rag.service <<'UNIT'
+[Unit]
+Description=Quantum Commerce - Assistente de Rastreio e Politicas (qc-rag)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=qc-rag
+WorkingDirectory=/opt/qc-rag/app
+EnvironmentFile=/etc/qc-rag.env
+ExecStart=/opt/qc-rag/venv/bin/python /opt/qc-rag/app/server.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now qc-rag.service
+
+for _ in $(seq 1 30); do
+  if curl -fsS http://127.0.0.1:8080/health; then
+    echo
+    echo "qc-rag bootstrap: OK $(date -Is)"
+    exit 0
+  fi
+  sleep 2
+done
+echo "qc-rag bootstrap: o servico nao respondeu /health em 60 s; veja: journalctl -u qc-rag"
+systemctl status qc-rag.service --no-pager || true
+exit 1

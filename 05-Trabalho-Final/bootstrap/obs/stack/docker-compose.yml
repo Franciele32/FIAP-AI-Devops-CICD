@@ -1,0 +1,92 @@
+# Observabilidade do Trabalho Final (EC2 qc-obs-tf-ai). Mesmo desenho da Aula 5
+# (04-GenAIOps/quantum-assistant/ops/cloud/docker-compose.yml), sem o probe e
+# sem ALB na frente do Grafana:
+#   - os apps qc-rag-<env> mandam OTLP para <ip-privado>:4318;
+#   - os testes do kit (no runner) consultam Prometheus 9090, Loki 3100 e Jaeger 16686;
+#   - o aluno abre o Grafana em http://<ip-publico>:3000, COM login.
+# Todas as portas publicam em todas as interfaces de proposito: quem filtra a
+# origem e o Security Group da EC2 (bootstrap/obs/network.tf).
+# Versoes pinadas iguais as da Aula 5 (sem :latest), menos o Jaeger (motivo abaixo).
+name: qc-obs-tf-ai
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.164.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4318:4318"
+    mem_limit: 256m
+    restart: unless-stopped
+
+  jaeger:
+    # 2.20.0 e nao a 2.22.0 da Aula 5: a partir da 2.21 o Jaeger tira a API
+    # /api/services e /api/traces?service=, que o datasource Jaeger do Grafana
+    # 13.2.5 ainda usa na busca. Testado em 2026-11-21: com a 2.22.0 o health do
+    # datasource da "request failed: 404 Not Found"; com a 2.20.0, busca e trace
+    # por id funcionam no Grafana, e /api/v3 continua disponivel.
+    image: jaegertracing/jaeger:2.20.0
+    command: ["--config=/etc/jaeger/config.yaml"]
+    volumes:
+      - ./jaeger.yaml:/etc/jaeger/config.yaml:ro
+    ports:
+      - "16686:16686"
+    mem_limit: 256m
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=12h
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    mem_limit: 384m
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.7.9
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./loki.yaml:/etc/loki/config.yaml:ro
+    ports:
+      - "3100:3100"
+    mem_limit: 256m
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:13.2.5
+    environment:
+      # Porta publica: anonimo NAO, login obrigatorio, sem cadastro.
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_AUTH_DISABLE_LOGIN_FORM: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_ALLOW_ORG_CREATE: "false"
+      # /metrics do Grafana responderia sem login na porta publica.
+      GF_METRICS_ENABLED: "false"
+      GF_SECURITY_ADMIN_USER: "admin"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      # HTTP sem TLS (sem dominio no Academy): cookie "secure" nao voltaria por HTTP.
+      GF_SECURITY_COOKIE_SECURE: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/trabalho-final-assistente.json"
+    env_file:
+      # GF_SERVER_ROOT_URL (IP publico atual), gerado a cada bootstrap.
+      - /opt/qc-obs/obs.env
+      # Senha do admin lida do SSM SecureString, chmod 600, fora do S3 e do Git.
+      - /opt/qc-obs/grafana.env
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    mem_limit: 1024m
+    depends_on: [prometheus, loki, jaeger]
+    restart: unless-stopped

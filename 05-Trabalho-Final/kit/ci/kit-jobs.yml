@@ -1,0 +1,194 @@
+# Jobs do KIT do Trabalho Final (PRONTOS). Cole este arquivo inteiro no seu
+# .gitlab-ci.yml e escreva, nos lugares marcados com "(seu)", os 6 jobs que
+# faltam: fmt-validate, checkov, plan-dev, plan-prod, deploy-dev e deploy-prod.
+#
+# O que nao mudar: o nome dos jobs, as linhas do pytest e do terraform test, os
+# needs e os artifacts. O test_contrato.py le este arquivo e reprova o pipeline
+# se um job do kit sumir ou deixar de testar.
+
+stages:
+  - validar
+  - planejar
+  - contrato
+  - deploy-dev
+  - verificar-dev
+  - deploy-prod
+  - verificar-prod
+
+default:
+  # Cache de providers no home do usuario do runner: sem cache, cada job baixaria
+  # o provider AWS (centenas de MB) de novo no terraform init. Fica no
+  # before_script (e nao em variables:) porque $HOME so existe no shell do runner.
+  # Nao defina before_script nos seus jobs: ele substituiria este.
+  before_script:
+    - export TF_PLUGIN_CACHE_DIR="$HOME/.terraform.d/plugin-cache"
+    - mkdir -p "$TF_PLUGIN_CACHE_DIR"
+
+# ---------- STAGE validar ----------
+
+# (seu) fmt-validate
+
+# (seu) checkov
+
+# kit: testa o modulo rag-cluster isolado com node_count 1 e 2, sem criar nada.
+# O Terraform 1.10.5 do runner nao gera JUnit no terraform test: o resultado
+# fica no log do job (verde = os 2 runs passaram).
+tf-test:
+  stage: validar
+  script:
+    - terraform init -input=false
+    - terraform workspace select dev || terraform workspace new dev
+    - terraform test
+  tags:
+    - shell
+
+# kit: gate de qualidade do RAG. Roda o golden set contra o app/ deste
+# repositorio, offline (sem AWS), com os limiares de app/evals/thresholds.json.
+# Se uma mudanca no corpus ou no codigo piorar o assistente, nada vai para dev.
+rag-quality-gate:
+  stage: validar
+  script:
+    - source /opt/venv/bin/activate
+    - pytest validacao/test_rag_gate.py --junitxml rag-quality-gate.xml
+  artifacts:
+    when: always
+    paths:
+      - rag-quality-gate.xml
+      - rag-quality-gate.json
+    reports:
+      junit: rag-quality-gate.xml
+  tags:
+    - shell
+
+# ---------- STAGE planejar ----------
+
+# (seu) plan-dev   -> resource_group: dev; artifacts: plan-dev.tfplan e build/ (o zip do app)
+# (seu) plan-prod  -> resource_group: prod; artifacts: plan-prod.tfplan e build/
+
+# ---------- STAGE contrato ----------
+
+# kit: confere o plan de cada ambiente contra o contrato, antes de qualquer apply.
+contrato-dev:
+  stage: contrato
+  needs: [plan-dev]
+  script:
+    - terraform init -input=false
+    - terraform workspace select dev
+    - terraform show -json plan-dev.tfplan > plan-dev.json
+    - source /opt/venv/bin/activate
+    - pytest validacao/test_contrato.py --ambiente dev --plan plan-dev.json --junitxml contrato-dev.xml
+  artifacts:
+    when: always
+    paths:
+      - contrato-dev.xml
+    reports:
+      junit: contrato-dev.xml
+  tags:
+    - shell
+
+contrato-prod:
+  stage: contrato
+  needs: [plan-prod]
+  script:
+    - terraform init -input=false
+    - terraform workspace select prod
+    - terraform show -json plan-prod.tfplan > plan-prod.json
+    - source /opt/venv/bin/activate
+    - pytest validacao/test_contrato.py --ambiente prod --plan plan-prod.json --junitxml contrato-prod.xml
+  artifacts:
+    when: always
+    paths:
+      - contrato-prod.xml
+    reports:
+      junit: contrato-prod.xml
+  tags:
+    - shell
+
+# ---------- STAGE deploy-dev ----------
+
+# (seu) deploy-dev   -> resource_group: dev; needs: [plan-dev, contrato-dev, rag-quality-gate]
+
+# ---------- STAGE verificar-dev ----------
+
+# kit: o assistente responde pelo ALB de dev, com o release certo e citando a fonte.
+smoke-dev:
+  stage: verificar-dev
+  needs: [deploy-dev]
+  script:
+    - terraform init -input=false
+    - terraform workspace select dev
+    - ALB_DNS=$(terraform output -raw alb_dns)
+    - RELEASE_ID=$(terraform output -raw release_id)
+    - source /opt/venv/bin/activate
+    - pytest validacao/test_smoke.py --ambiente dev --alb-dns "$ALB_DNS" --release "$RELEASE_ID" --junitxml smoke-dev.xml
+  artifacts:
+    when: always
+    paths:
+      - smoke-dev.xml
+    reports:
+      junit: smoke-dev.xml
+  tags:
+    - shell
+
+# kit: manda perguntas reais ao ALB de dev e procura cada uma no Prometheus
+# (metrica), no Loki (log) e no Jaeger (trace). Sem os tres, nada vai para prod.
+observabilidade-dev:
+  stage: verificar-dev
+  needs: [deploy-dev]
+  script:
+    - terraform init -input=false
+    - terraform workspace select dev
+    - ALB_DNS=$(terraform output -raw alb_dns)
+    - source /opt/venv/bin/activate
+    - pytest validacao/test_observabilidade.py --ambiente dev --alb-dns "$ALB_DNS" --junitxml observabilidade-dev.xml
+  artifacts:
+    when: always
+    paths:
+      - observabilidade-dev.xml
+    reports:
+      junit: observabilidade-dev.xml
+  tags:
+    - shell
+
+# ---------- STAGE deploy-prod ----------
+
+# (seu) deploy-prod  -> resource_group: prod; needs: [plan-prod, contrato-prod, smoke-dev, observabilidade-dev]
+
+# ---------- STAGE verificar-prod ----------
+
+smoke-prod:
+  stage: verificar-prod
+  needs: [deploy-prod]
+  script:
+    - terraform init -input=false
+    - terraform workspace select prod
+    - ALB_DNS=$(terraform output -raw alb_dns)
+    - RELEASE_ID=$(terraform output -raw release_id)
+    - source /opt/venv/bin/activate
+    - pytest validacao/test_smoke.py --ambiente prod --alb-dns "$ALB_DNS" --release "$RELEASE_ID" --junitxml smoke-prod.xml
+  artifacts:
+    when: always
+    paths:
+      - smoke-prod.xml
+    reports:
+      junit: smoke-prod.xml
+  tags:
+    - shell
+
+observabilidade-prod:
+  stage: verificar-prod
+  needs: [deploy-prod]
+  script:
+    - terraform init -input=false
+    - terraform workspace select prod
+    - ALB_DNS=$(terraform output -raw alb_dns)
+    - source /opt/venv/bin/activate
+    - pytest validacao/test_observabilidade.py --ambiente prod --alb-dns "$ALB_DNS" --junitxml observabilidade-prod.xml
+  artifacts:
+    when: always
+    paths:
+      - observabilidade-prod.xml
+    reports:
+      junit: observabilidade-prod.xml
+  tags:
+    - shell
