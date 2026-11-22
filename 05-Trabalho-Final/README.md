@@ -164,6 +164,9 @@ No **navegador**, abra **[Personal access tokens](https://gitlab.com/-/user_sett
 | **Expiration date** | daqui a 7 dias |
 | **Select scopes** | marque só **`api`** |
 
+<!-- NOVA-IMAGEM: img/01-pat-legacy-escopo-api.png | capturar: tela Personal access tokens → Generate token → Legacy token, formulário com o nome trabalho-final-ai-bootstrap, expiração de 7 dias e só o escopo api marcado, ANTES de criar (sem o valor glpat-) | depois de salvar o arquivo, descomente a linha abaixo -->
+<!-- ![Formulário Legacy token do GitLab preenchido antes de criar: nome trabalho-final-ai-bootstrap, expiração em 7 dias e só o escopo api marcado](img/01-pat-legacy-escopo-api.png) -->
+
 Clique em **Create token** (ou **Generate token**) e copie o valor que começa com `glpat-`. Ele aparece **uma vez só**: se fechar a página sem copiar, gere outro.
 
 Não crie runner nem projeto na tela do GitLab: quem cria os dois é o `make bootstrap`, no passo seguinte.
@@ -453,6 +456,9 @@ Ctrl+clique (Cmd+clique no Mac) no link para abrir no navegador (é **Settings �
 
 - aba **Assigned project runners**: o `qc-runner-tf-ai` com a bolinha verde;
 - aba **Instance**: a chave **Turn on instance runners for this project** **desligada**, com a mensagem *Instance runners are turned off*.
+
+<!-- NOVA-IMAGEM: img/00-runner-assigned-online.png | capturar: Settings → CI/CD → Runners, aba Assigned project runners, com o qc-runner-tf-ai online (bolinha verde) e as tags shell e terraform, sem o IP público | depois de salvar o arquivo, descomente a linha abaixo -->
+<!-- ![Settings, CI/CD, Runners do projeto, aba Assigned project runners: o qc-runner-tf-ai com a bolinha verde de online e as tags shell e terraform](img/00-runner-assigned-online.png) -->
 
 O bootstrap desliga essa chave pela API, mas confiram na tela: ligada, o GitLab pode mandar os jobs para os runners compartilhados dele, que não têm credencial da sua conta AWS, e o pipeline quebra no `terraform init`. É a mesma chave do [passo 12 do Lab 02.1](../02-Ansible/01-provisionando-gitlab-runner/README.md#passo-12).
 
@@ -1758,6 +1764,9 @@ O topo da aba soma tudo, então mostra falhas mesmo com o pipeline verde: são o
 
 Quando um teste reprova, a mensagem diz o que está errado e o valor encontrado contra o esperado. Use a tabela para achar o Requisito; corrijam no clone, rodem o `make validar` e repitam os passos 17 e 18: cada push cria um pipeline novo.
 
+<!-- NOVA-IMAGEM: img/08-tests-contrato-vermelho.png | capturar: aba Tests → suíte contrato-dev → test_backend_use_lockfile reprovado, aberto em View details com a mensagem de erro (pipeline com use_lockfile removido de propósito) | depois de salvar o arquivo, descomente a linha abaixo -->
+<!-- ![Aba Tests do pipeline, suíte contrato-dev: o teste test_backend_use_lockfile reprovado, aberto em View details com a mensagem de erro do valor encontrado contra o esperado](img/08-tests-contrato-vermelho.png) -->
+
 | Job ou suíte | O que um vermelho quer dizer | Onde corrigir |
 |--------------|------------------------------|---------------|
 | `fmt-validate` | arquivo fora da formatação ou HCL inválido | `terraform fmt -recursive` e passo 9 |
@@ -2334,6 +2343,9 @@ Depois repitam o passo 28.
 
 No Codespaces, abra a pasta do projeto no explorer: **File → Open Folder**, digite `/workspaces/trabalho-final-ai` e confirme (a janela recarrega). Clique com o botão direito em `trabalho-final-ai-<RM>.zip` → **Download**. Para voltar ao repositório do curso depois, **File → Open Folder** → `/workspaces/FIAP-AI-Devops-CICD`.
 
+<!-- NOVA-IMAGEM: img/10-codespaces-download-zip.png | capturar: explorer do Codespaces em /workspaces/trabalho-final-ai com o menu de botão direito sobre o zip e a opção Download | depois de salvar o arquivo, descomente a linha abaixo -->
+<!-- ![Explorer do Codespaces na pasta /workspaces/trabalho-final-ai, com o menu de botão direito aberto sobre o zip do grupo e a opção Download](img/10-codespaces-download-zip.png) -->
+
 </dd>
 
 </dl>
@@ -2400,6 +2412,9 @@ make destroy-runner
 <dd>
 
 O `make destroy-runner` usou o token pela última vez para apagar o runner no GitLab. No navegador, abra **[Personal access tokens](https://gitlab.com/-/user_settings/personal_access_tokens)** e clique em **Revoke** na linha `trabalho-final-ai-bootstrap`. O projeto e o código continuam no GitLab.
+
+<!-- NOVA-IMAGEM: img/11-pat-revoke.png | capturar: lista de Personal access tokens com a linha trabalho-final-ai-bootstrap e o botão Revoke | depois de salvar o arquivo, descomente a linha abaixo -->
+<!-- ![Lista de Personal access tokens do GitLab com a linha trabalho-final-ai-bootstrap e o botão Revoke ao lado](img/11-pat-revoke.png) -->
 
 Depois apague a cópia local do token:
 
