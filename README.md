@@ -66,11 +66,11 @@ Cada aula responde a um pedaço desta pergunta:
 | **3** | **Configuration Management e Automação:** Ansible, idempotência e preparação do GitLab Runner | [02-Ansible](02-Ansible/README.md) |
 | **4** | **CI/CD e Deployment de Aplicações de IA:** GitLab, pipelines, testes, segurança e introdução a testes de prompts | [03-CICD](03-CICD/README.md) |
 | **5** | **GenAIOps e RAG na Prática:** RAG, APIs empresariais, avaliações, observabilidade e quality gates de GenAI | [04-GenAIOps](04-GenAIOps/README.md) |
-| **6** | **Architecture Challenge / Trabalho Final:** aplicação integradora | [Trabalho-final](Trabalho-final/README.md) |
+| **6** | **Architecture Challenge / Trabalho Final:** aplicação integradora | [05-Trabalho-Final](05-Trabalho-Final/README.md) |
 
 A coluna **Tema** descreve o escopo completo de cada encontro. O que ainda não tem lab escrito é conduzido em sala.
 
-**A numeração das pastas não é o número da aula.** As pastas seguem a ordem dos módulos práticos (`01-Terraform` é o material da Aula 2), e uma aula pode ter várias demos; por isso as pastas não são renomeadas pela sequência dos encontros. Nos labs, siga a ordem das pastas numeradas: `01-Terraform`, `02-Ansible`, `03-CICD`, `04-GenAIOps` e, por fim, `Trabalho-final`.
+**A numeração das pastas não é o número da aula.** As pastas seguem a ordem dos módulos práticos (`01-Terraform` é o material da Aula 2), e uma aula pode ter várias demos; por isso as pastas não são renomeadas pela sequência dos encontros. Nos labs, siga a ordem das pastas numeradas: `01-Terraform`, `02-Ansible`, `03-CICD`, `04-GenAIOps` e, por fim, `05-Trabalho-Final`.
 
 ---
 
@@ -126,7 +126,7 @@ Os primeiros labs constroem, peça por peça, a base de engenharia que vai suste
 | 03.2 | **CI/CD: Validação e relatórios** | Stage `validate` com `terraform fmt`/`validate`, TFLint, Checkov, `terraform test` e validação do código da Lambda, com relatório JUnit na aba **Tests** do GitLab. | [02-Validando-e-gerando-relatorios](03-CICD/02-Validando-e-gerando-relatorios/README.md) |
 | 04.1 | **GenAIOps: A evidência por trás da resposta** | O assistente da Quantum Commerce roda na AWS (ECS Fargate + Neo4j + ALB) com três estratégias de recuperação lado a lado: BM25, vetorial (embeddings open source em CPU) e grafo (caminho produto → categoria → campanha → política → versão). Vigência por `as_of_date`, tenant, ACL, status de pedido pela API, e uma aresta alterada em runtime que muda `graph_version`. Projeto GitLab próprio, independente das aulas anteriores; o ambiente é montado na própria aula (~85 min). | [01-Release-RAG-Quality-Gates](04-GenAIOps/01-Release-RAG-Quality-Gates/README.md) |
 | 04.2 | **GenAIOps: O dashboard estava verde. O cliente, errado.** | O mesmo produto na AWS: pipeline GitLab real que fica **vermelho** por uma aresta errada no grafo (`live` intocado), correção e promoção `candidate → live` por digest com manifesto, observabilidade OpenTelemetry na AWS (Jaeger, Prometheus, Loki, Grafana), incidente injetado **sem commit** com HTTP 200, alerta de qualidade por probes, trace até o span da causa, restore, replay e postmortem que vira caso golden (~72 min). | [02-Operacao-Observabilidade-Qualidade-Continua](04-GenAIOps/02-Operacao-Observabilidade-Qualidade-Continua/README.md) |
-| 05 (Aula 6) | **Trabalho Final** | Demo Count transformada em módulo, estado remoto, workspaces `dev`/`prod` e pipeline de 3 etapas (validar, gate de segurança, aplicar) no runner próprio. Entrega em `.zip`. | [Trabalho-final](Trabalho-final/README.md) |
+| 05 (Aula 6) | **Trabalho Final: o assistente vai para produção** | Em grupo. Um token do GitLab (Legacy, escopo `api`) e um `make bootstrap` sobem o projeto, o runner e a observabilidade (OTel Collector, Prometheus, Loki, Jaeger e Grafana). O grupo escreve o módulo `rag-cluster` (a partir da demo Count), o raiz com os workspaces `dev` (1 EC2) e `prod` (2 EC2), o backend remoto no S3 e os jobs do pipeline. O pipeline tem 7 stages, com contrato, gate de qualidade RAG, smoke e observabilidade (log, métrica e trace pelo `request_id`), e só publica prod depois de dev verificado; ele só fica verde até `verificar-prod` com o trabalho 100% certo. Entrega do grupo: um `.zip` com o código e 5 prints, o último com a infraestrutura destruída (~3 h). | [05-Trabalho-Final](05-Trabalho-Final/README.md) |
 
 ---
 
@@ -168,7 +168,7 @@ flowchart LR
     A2 --> A3
     A3 --> A4
     A4 --> A5
-    A5 --> F["Aula 6<br/>Trabalho Final<br/>Trabalho-final"]
+    A5 --> F["Aula 6<br/>Trabalho Final<br/>05-Trabalho-Final"]
 ```
 
 Cada lab assume que os anteriores foram concluídos. Em especial:
@@ -176,8 +176,8 @@ Cada lab assume que os anteriores foram concluídos. Em especial:
 - os labs de **Terraform (01.x)** vão em ordem de dificuldade, e as demos 01.3, 01.4 e 01.5 usam a rede criada na 01.2: mantenha essa VPC de pé até o fim do curso;
 - o lab de **Ansible (02.1)** provisiona o GitLab Runner que executa os pipelines de `03-CICD`; sem ele, o CI/CD não tem onde rodar;
 - os labs de **CI/CD (03.x)** automatizam exatamente o `plan`/`apply` que você aprendeu a rodar na mão em `01-Terraform`;
-- os labs de **GenAIOps (04.x)** são **independentes dos anteriores** e tudo acontece **dentro da aula**: o assistente vive num projeto GitLab próprio (`quantum-ai-assistant`), e a Parte 1 da 04.1, no início da aula, cria sozinha o que faltar (bucket, rede `fiap-lab`, API de pedidos, runner: reaproveitado de quem fez a 02.1, criado para quem não fez). A 04.1 leva cerca de 85 min e a 04.2 cerca de 72 min, incluindo montar o ambiente. A 04.1 estuda a evidência das três estratégias de recuperação na AWS; a 04.2 opera o mesmo produto (pipeline, incidente, observabilidade) e termina com o desligamento ou destroy do runner;
-- o **Trabalho Final** junta Terraform, Ansible e CI/CD num único projeto entregável.
+- os labs de **GenAIOps (04.x)** são **independentes dos anteriores** e tudo acontece **dentro da aula**: o assistente vive num projeto GitLab próprio (`quantum-ai-assistant`), e a Parte 1 da 04.1, no início da aula, cria sozinha o que faltar (bucket, rede `fiap-lab`, API de pedidos, runner: reaproveitado de quem fez a 02.1, criado para quem não fez). A 04.1 leva cerca de 85 min e a 04.2 cerca de 72 min, incluindo montar o ambiente. A 04.1 estuda a evidência das três estratégias de recuperação na AWS; a 04.2 opera o mesmo produto (pipeline, incidente, observabilidade) e termina com o desligamento do runner. O fim da 04.2 encerra a Aula 5, não a disciplina: a limpeza deixa de pé o bucket, a rede `fiap-lab`, a API de pedidos, os segredos e o projeto GitLab;
+- o **Trabalho Final** junta Terraform (módulo, workspaces e state remoto), CI/CD e a operação de RAG da Aula 5 num projeto do grupo. O ambiente é montado pelo `make bootstrap`, que precisa da VPC `fiap-lab` e a recria se ela tiver sumido.
 
 ---
 
@@ -210,7 +210,12 @@ Cada lab assume que os anteriores foram concluídos. Em especial:
 │   │                                           #   app, grafo e vetor, infra-ecs/ e infra-obs/, pipeline, Makefile (make links)
 │   ├── diagramas/                              # fontes Excalidraw das arquiteturas da Aula 5
 │   └── shared/runner/                          # preflight e recuperação do runner no início da aula
-├── Trabalho-final/                             # Aula 6: Trabalho Final
+├── 05-Trabalho-Final/                          # Aula 6: Trabalho Final, em grupo
+│   ├── bootstrap/                              # make bootstrap: projeto GitLab, runner, observabilidade e clone com o kit
+│   ├── kit/                                    # assistente, módulo app-release, testes de contrato e jobs prontos do pipeline
+│   ├── diagramas/                              # fontes Excalidraw da arquitetura e do pipeline
+│   ├── img/                                    # prints de referência do README
+│   └── Makefile                                # bootstrap, status, links, validar, smoke e destroy-*
 └── README.md
 ```
 
@@ -221,9 +226,9 @@ Cada lab assume que os anteriores foram concluídos. Em especial:
 - **Blocos `💡 Clique para entender`:** abra sempre que encontrar um. Eles trazem o porquê de cada comando e links para a documentação oficial.
 - **`cd` absoluto nos comandos:** os blocos de terminal usam caminhos como `/workspaces/FIAP-AI-Devops-CICD/...`, para que cada passo funcione sozinho mesmo se você reabrir o terminal.
 - **A rede `fiap-lab` sumiu?** Um reset do Learner Lab apaga a VPC. Recrie com `bash /workspaces/FIAP-AI-Devops-CICD/01-Terraform/scripts/recriar-rede.sh`: o script é idempotente e termina com `REDE_OK <vpc-id>`.
-- **Links da Aula 5 prontos:** na 04.x, `make links` imprime os links do seu projeto no GitLab (pipelines, runners), da Central de Evidências e dos painéis do Grafana, já com o seu usuário, sem navegar por menus.
+- **Links da Aula 5 prontos:** na 04.x, `make links` imprime os links do seu projeto no GitLab (pipelines, runners), da Central de Evidências e dos painéis do Grafana, já com o seu usuário, sem navegar por menus. No Trabalho Final, `make links` faz o mesmo para o projeto do grupo, o Grafana e os dois ambientes.
 - **Erro `ExpiredToken`?** A sessão do AWS Academy dura 4 horas. Inicie uma nova sessão e recopie as credenciais, como no [Início de aula](00-create-codespaces/Inicio-de-aula.md).
-- **Recursos pagos:** cada lab que cria infraestrutura paga termina com um passo de limpeza (`terraform destroy`). A VPC `fiap-lab` criada na 01.2 fica de pé até o fim do curso (usada pelos labs 01.3 a 01.5, 02.1, 03.x e pelo Trabalho Final); nenhum lab a destrói. Ela é gratuita. O runner da 02.1 fica de pé (desligado entre aulas) até o fim de `04-GenAIOps`; o destroy acontece no último passo da demo 04.2, e o README de cada lab diz quando desligar. O runtime da Aula 5 (ECS Fargate, ALB, EC2 de observabilidade) cobra por hora e tem limpeza própria em `--dry-run` no fim da 04.2.
+- **Recursos pagos:** cada lab que cria infraestrutura paga termina com um passo de limpeza (`terraform destroy`). A VPC `fiap-lab` criada na 01.2 fica de pé até o fim do curso (usada pelos labs 01.3 a 01.5, 02.1, 03.x e pelo Trabalho Final); nenhum lab a destrói. Ela é gratuita. O runtime da Aula 5 (ECS Fargate, ALB, EC2 de observabilidade) cobra por hora e tem limpeza própria, que começa em `--dry-run`, no fim da 04.2; o último passo **desliga** o runner (não destrói) e deixa de pé a base: bucket, rede `fiap-lab`, API de pedidos, segredos e projeto GitLab. O Trabalho Final termina com `make destroy-ambientes`, `make destroy-obs` e `make destroy-runner` e com um print de que nenhuma EC2 nem ALB dele ficou de pé.
 
 ---
 
