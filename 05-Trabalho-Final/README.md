@@ -11,7 +11,7 @@ CONVENÇÃO DESTE README (nota para o professor, não aparece renderizada)
   Rodada 3 (2026-11-21, R6/R7): bootstrap do zero absoluto 6 min 28 s e 6 min 55 s; make destroy-ambientes 95 s, destroy-obs 48 s,
   destroy-runner 61 s, make destroy (tudo) 154 s; 2a execução de cada um 11 a 50 s, só mensagens de vazio/não existia.
   Marcadores de saída a confirmar restantes: nenhum (tudo medido).
-- Os prints deste trabalho são Modo A (entrega do grupo): lista fechada 01 a 04 em prints/.
+- Os prints deste trabalho são Modo A (entrega do grupo): lista fechada 01 a 05 em prints/.
 - Imagens de guia que faltam ficam como NOVA-IMAGEM, invisíveis ao aluno.
 -->
 
@@ -66,7 +66,7 @@ Nunca usou terminal? Copie o bloco cinza inteiro, cole no terminal e aperte Ente
 
 ## O que vocês terão ao final
 
-Um projeto no GitLab em que um `git push` cria do zero, testa e publica o assistente em **dev** (1 máquina) e em **prod** (2 máquinas), cada ambiente atrás do seu balanceador, com o state de cada um no seu workspace. A entrega é um `.zip` do grupo com o código e 4 prints.
+Um projeto no GitLab em que um `git push` cria do zero, testa e publica o assistente em **dev** (1 máquina) e em **prod** (2 máquinas), cada ambiente atrás do seu balanceador, com o state de cada um no seu workspace. A entrega é um `.zip` do grupo com o código e 5 prints.
 
 **Critério de pronto:** o pipeline fica **verde até `verificar-prod`**, e o state de dev e o de prod estão nos workspaces certos (`env:/dev/...` e `env:/prod/...` no bucket). Se isso aconteceu, o trabalho está correto.
 
@@ -80,7 +80,7 @@ Os blocos **💡 Clique para entender** trazem o porquê, a mecânica por baixo 
 | [Parte 1](#parte-1---o-módulo-rag-cluster-e-o-raiz) | Transformar a demo Count no módulo `rag-cluster` e escrever o raiz | [1](#req-1) · [2](#req-2) · [3](#req-3) · [4](#req-4) | [5](#passo-5) · [6](#passo-6) · [7](#passo-7) · [8](#passo-8) · [9](#passo-9) | ~50 min |
 | [Parte 2](#parte-2---state-remoto-e-os-ambientes-dev-e-prod) | State no S3, workspaces `dev` e `prod`, validação local | [5](#req-5) · [6](#req-6) | [10](#passo-10) · [11](#passo-11) · [12](#passo-12) · [13](#passo-13) | ~25 min |
 | [Parte 3](#parte-3---o-pipeline-que-promove-de-dev-para-prod) | Escrever os 6 jobs, subir, ler a aba Tests, conferir o assistente e achar o trace | [7](#req-7) · [8](#req-8) · [9](#req-9) | [14](#passo-14) · [15](#passo-15) · [16](#passo-16) · [17](#passo-17) · [18](#passo-18) · [19](#passo-19) · [20](#passo-20) · [21](#passo-21) · [22](#passo-22) · [23](#passo-23) · [24](#passo-24) · [25](#passo-25) · [26](#passo-26) · [27](#passo-27) | ~65 min |
-| [Parte 4](#parte-4---empacotar-entregar-e-destruir) | Empacotar, entregar, destruir e revogar o token | [10](#req-10) | [28](#passo-28) · [29](#passo-29) · [30](#passo-30) · [31](#passo-31) · [32](#passo-32) | ~15 min |
+| [Parte 4](#parte-4---empacotar-entregar-e-destruir) | Empacotar o código, destruir (print 05), entregar o zip com os 5 prints e revogar o token | [10](#req-10) | [28](#passo-28) · [29](#passo-29) · [30](#passo-30) · [31](#passo-31) · [32](#passo-32) | ~15 min |
 
 A Parte 3 conta com uma ou duas rodadas de correção: é normal o primeiro pipeline apontar algo. Os **Requisitos** são o que o código do grupo precisa cumprir; os **passos** são a ordem de execução (é o número para citar ao pedir ajuda: "travei no passo 15").
 
@@ -164,8 +164,9 @@ No **navegador**, abra **[Personal access tokens](https://gitlab.com/-/user_sett
 | **Expiration date** | daqui a 7 dias |
 | **Select scopes** | marque só **`api`** |
 
-<!-- NOVA-IMAGEM: img/01-pat-legacy-escopo-api.png | capturar: tela Personal access tokens → Generate token → Legacy token, formulário com o nome trabalho-final-ai-bootstrap, expiração de 7 dias e só o escopo api marcado, ANTES de criar (sem o valor glpat-) | depois de salvar o arquivo, descomente a linha abaixo -->
-<!-- ![Formulário Legacy token do GitLab preenchido antes de criar: nome trabalho-final-ai-bootstrap, expiração em 7 dias e só o escopo api marcado](img/01-pat-legacy-escopo-api.png) -->
+![Personal access tokens com o menu Generate token aberto e a opção Legacy token destacada](img/01-pat-legacy-escopo-api-0.png)
+
+![Formulário Legacy token do GitLab preenchido antes de criar: nome trabalho-final-ai-bootstrap, expiração em 7 dias e só o escopo api marcado](img/01-pat-legacy-escopo-api.png)
 
 Clique em **Create token** (ou **Generate token**) e copie o valor que começa com `glpat-`. Ele aparece **uma vez só**: se fechar a página sem copiar, gere outro.
 
@@ -260,7 +261,7 @@ Todos rodam a partir de `/workspaces/FIAP-AI-Devops-CICD/05-Trabalho-Final`. Nen
 | `make validar` | `bootstrap/validar.sh validar` no clone: `fmt -check`, `init`, `validate`, `terraform test`, o gate RAG, `plan` de `dev` e de `prod` e o `test_contrato.py` sobre cada plano. **Não roda `apply`.** | Antes de cada `push`: os mesmos testes de contrato do pipeline, sem criar nada. |
 | `make smoke` | `bootstrap/validar.sh smoke`: o `test_smoke.py` contra `dev` e `prod` já no ar, a partir do Codespaces (`AMBIENTE=dev` testa só um). | Depois do deploy, para conferir sem esperar outro pipeline. |
 | `make kit` | Recopia para o clone os arquivos do kit que estiverem diferentes. Não toca em nenhum arquivo do grupo. | Se alguém apagou ou alterou um arquivo do kit sem querer. |
-| `make destroy` | `destroy.sh tudo`: ambientes `dev` e `prod`, runner e observabilidade. **Apaga TUDO deste trabalho de uma vez.** | Só se quiserem derrubar tudo junto; no passo 31 usamos os três alvos abaixo, um por vez. |
+| `make destroy` | `destroy.sh tudo`: ambientes `dev` e `prod`, runner e observabilidade. **Apaga TUDO deste trabalho de uma vez.** | Só se quiserem derrubar tudo junto; no passo 30 usamos os três alvos abaixo, um por vez. |
 | `make destroy-ambientes` | No clone: `terraform destroy` nos workspaces `dev` e `prod`. | Para derrubar só o assistente e manter o palco. |
 | `make destroy-runner` | Destrói a EC2 do runner, apaga o runner no GitLab e o token no SSM. | Para derrubar só o runner. |
 | `make destroy-obs` | Destrói a EC2 de observabilidade e os parâmetros SSM dela. | Para derrubar só a observabilidade. |
@@ -457,8 +458,8 @@ Ctrl+clique (Cmd+clique no Mac) no link para abrir no navegador (é **Settings �
 - aba **Assigned project runners**: o `qc-runner-tf-ai` com a bolinha verde;
 - aba **Instance**: a chave **Turn on instance runners for this project** **desligada**, com a mensagem *Instance runners are turned off*.
 
-<!-- NOVA-IMAGEM: img/00-runner-assigned-online.png | capturar: Settings → CI/CD → Runners, aba Assigned project runners, com o qc-runner-tf-ai online (bolinha verde) e as tags shell e terraform, sem o IP público | depois de salvar o arquivo, descomente a linha abaixo -->
-<!-- ![Settings, CI/CD, Runners do projeto, aba Assigned project runners: o qc-runner-tf-ai com a bolinha verde de online e as tags shell e terraform](img/00-runner-assigned-online.png) -->
+
+![Settings, CI/CD, Runners do projeto, aba Assigned project runners: o qc-runner-tf-ai com a bolinha verde de online e as tags shell e terraform](img/00-runner-assigned-online.png)
 
 O bootstrap desliga essa chave pela API, mas confiram na tela: ligada, o GitLab pode mandar os jobs para os runners compartilhados dele, que não têm credencial da sua conta AWS, e o pipeline quebra no `terraform init`. É a mesma chave do [passo 12 do Lab 02.1](../02-Ansible/01-provisionando-gitlab-runner/README.md#passo-12).
 
@@ -1764,9 +1765,6 @@ O topo da aba soma tudo, então mostra falhas mesmo com o pipeline verde: são o
 
 Quando um teste reprova, a mensagem diz o que está errado e o valor encontrado contra o esperado. Use a tabela para achar o Requisito; corrijam no clone, rodem o `make validar` e repitam os passos 17 e 18: cada push cria um pipeline novo.
 
-<!-- NOVA-IMAGEM: img/08-tests-contrato-vermelho.png | capturar: aba Tests → suíte contrato-dev → test_backend_use_lockfile reprovado, aberto em View details com a mensagem de erro (pipeline com use_lockfile removido de propósito) | depois de salvar o arquivo, descomente a linha abaixo -->
-<!-- ![Aba Tests do pipeline, suíte contrato-dev: o teste test_backend_use_lockfile reprovado, aberto em View details com a mensagem de erro do valor encontrado contra o esperado](img/08-tests-contrato-vermelho.png) -->
-
 | Job ou suíte | O que um vermelho quer dizer | Onde corrigir |
 |--------------|------------------------------|---------------|
 | `fmt-validate` | arquivo fora da formatação ou HCL inválido | `terraform fmt -recursive` e passo 9 |
@@ -2236,7 +2234,7 @@ No Grafana, menu à esquerda → **Explore**, escolha a fonte **Loki** no seleto
 - [ ] O S3 tem `env:/dev/trabalho-final-ai/terraform.tfstate` e `env:/prod/trabalho-final-ai/terraform.tfstate`.
 - [ ] O assistente respondeu em dev e em prod, citando `politica-trocas`.
 - [ ] O grupo achou no Grafana o log e o trace da própria pergunta.
-- [ ] Os 4 prints estão salvos numa pasta `prints/`, na máquina de um integrante.
+- [ ] Os prints 01 a 04 estão salvos numa pasta `prints/`, na máquina de um integrante (o 05 vem no passo 30, depois do destroy).
 
 ---
 
@@ -2244,7 +2242,7 @@ No Grafana, menu à esquerda → **Explore**, escolha a fonte **Loki** no seleto
 
 ### Resultado esperado desta parte
 
-Um `.zip` do grupo com o código e os 4 prints, pronto para entregar, nenhuma infraestrutura paga deste trabalho de pé e o token do GitLab revogado.
+Um `.zip` do grupo com o código e os 5 prints, pronto para entregar, nenhuma infraestrutura paga deste trabalho de pé e o token do GitLab revogado.
 
 ---
 
@@ -2271,7 +2269,8 @@ trabalho-final-ai/
     ├── 01-pipeline-verde.png
     ├── 02-tests.png
     ├── 03-assistente-dev-prod.png
-    └── 04-trace-observabilidade.png
+    ├── 04-trace-observabilidade.png
+    └── 05-infra-destruida.png
 ```
 
 <a id="passo-28"></a>
@@ -2343,9 +2342,6 @@ Depois repitam o passo 28.
 
 No Codespaces, abra a pasta do projeto no explorer: **File → Open Folder**, digite `/workspaces/trabalho-final-ai` e confirme (a janela recarrega). Clique com o botão direito em `trabalho-final-ai-<RM>.zip` → **Download**. Para voltar ao repositório do curso depois, **File → Open Folder** → `/workspaces/FIAP-AI-Devops-CICD`.
 
-<!-- NOVA-IMAGEM: img/10-codespaces-download-zip.png | capturar: explorer do Codespaces em /workspaces/trabalho-final-ai com o menu de botão direito sobre o zip e a opção Download | depois de salvar o arquivo, descomente a linha abaixo -->
-<!-- ![Explorer do Codespaces na pasta /workspaces/trabalho-final-ai, com o menu de botão direito aberto sobre o zip do grupo e a opção Download](img/10-codespaces-download-zip.png) -->
-
 </dd>
 
 </dl>
@@ -2357,32 +2353,12 @@ No Codespaces, abra a pasta do projeto no explorer: **File → Open Folder**, di
 <dl>
 <dt>
 
-**30. Na máquina local, junte os prints e recompacte**
+**30. Destrua o que o trabalho criou: ambientes, observabilidade e runner**
 
 </dt>
 <dd>
 
-Descompacte o zip baixado (Windows: botão direito → **Extrair tudo**; Mac: duplo clique), crie dentro da pasta extraída uma pasta `prints/`, coloque nela os 4 prints com os nomes exatos e compacte a pasta de novo (Windows: botão direito → **Enviar para → Pasta compactada**; Mac: botão direito → **Comprimir**). Esse zip final, com o código e `prints/`, é o que o grupo entrega, **um por grupo**, pelo canal de entrega da turma.
-
-Antes de compactar, abram cada print e confiram que nenhum mostra token (`glpat-`, `glrt-`), senha do Grafana ou chave AWS.
-
-</dd>
-
-</dl>
-
----
-
-<a id="passo-31"></a>
-
-<dl>
-<dt>
-
-**31. Destrua o que o trabalho criou: ambientes, observabilidade e runner**
-
-</dt>
-<dd>
-
-A entrega é código e prints, e o histórico do pipeline continua no GitLab: nada se perde ao destruir. Rodem os três alvos, nesta ordem, cada um com **hífen**:
+O zip do código já está na máquina local (passo 29) e o histórico do pipeline continua no GitLab: nada se perde ao destruir. Rodem os três alvos, nesta ordem, cada um com **hífen**:
 
 ```bash
 cd /workspaces/FIAP-AI-Devops-CICD/05-Trabalho-Final
@@ -2396,37 +2372,35 @@ make destroy-runner
 `make destroy` sozinho, sem hífen, apaga TUDO deste trabalho de uma vez (ambientes, runner e observabilidade), em ~2 min 30 s (154 s no teste de referência).
 
 </dd>
-
-</dl>
-
----
-
-<a id="passo-32"></a>
-
-<dl>
 <dt>
 
-**32. Revogue o token do GitLab**
+**30.1. Confira que não sobrou nada e tire o print**
 
 </dt>
 <dd>
 
-O `make destroy-runner` usou o token pela última vez para apagar o runner no GitLab. No navegador, abra **[Personal access tokens](https://gitlab.com/-/user_settings/personal_access_tokens)** e clique em **Revoke** na linha `trabalho-final-ai-bootstrap`. O projeto e o código continuam no GitLab.
-
-<!-- NOVA-IMAGEM: img/11-pat-revoke.png | capturar: lista de Personal access tokens com a linha trabalho-final-ai-bootstrap e o botão Revoke | depois de salvar o arquivo, descomente a linha abaixo -->
-<!-- ![Lista de Personal access tokens do GitLab com a linha trabalho-final-ai-bootstrap e o botão Revoke ao lado](img/11-pat-revoke.png) -->
-
-Depois apague a cópia local do token:
+O bloco só consulta a conta, não apaga nada: pergunta à AWS quantas EC2 e quantos ALBs deste trabalho ainda existem.
 
 ```bash
-rm -f ~/.trabalho-final-ai.env
+cd /workspaces/FIAP-AI-Devops-CICD/05-Trabalho-Final
+aws ec2 describe-instances --region us-east-1 --filters "Name=tag:Name,Values=qc-rag-*,qc-runner-tf-ai,qc-obs-tf-ai" "Name=instance-state-name,Values=pending,running,stopping,stopped" --query 'length(Reservations[].Instances[])' --output text
+aws elbv2 describe-load-balancers --region us-east-1 --query "length(LoadBalancers[?starts_with(LoadBalancerName, 'qc-rag-')])" --output text
 ```
+
+**Esperado:** `0` e `0`: nenhuma EC2 deste trabalho (assistente, runner ou observabilidade) e nenhum ALB `qc-rag-*`.
+
+```text
+0
+0
+```
+
+> 📸 **Print obrigatório** — salvem como `prints/05-infra-destruida.png`. Capturem o terminal mostrando as últimas linhas dos destroys (`>> Pronto. ...`) e os dois `0` do 30.1. Sem token nem chave na tela.
 
 </dd>
 </dl>
 
 > [!CAUTION]
-> **Não pulem o passo 31.** Com o trabalho no ar ficam ligados 3 EC2 `t3.micro` (1 em dev, 2 em prod), 2 Application Load Balancers, o runner `t3.small` e a observabilidade `t3.medium`, além dos IPv4 públicos de cada EC2 e dos ALBs (cada ALB tem um por zona). Somando, perto de **US$ 0,20 por hora, uns US$ 5 por dia esquecido**, descontados do orçamento do Learner Lab. A `t3.medium` da observabilidade é a mais cara: se pararem no meio e forem voltar outro dia, o `make destroy-ambientes`, o `make destroy-obs` e o `make destroy-runner`, mais um novo `make bootstrap` na volta, custam menos que deixar ligada. Nenhum dos três toca na VPC `fiap-lab`: a rede é compartilhada pelos labs e não cobra por hora.
+> **Não pulem o passo 30.** Com o trabalho no ar ficam ligados 3 EC2 `t3.micro` (1 em dev, 2 em prod), 2 Application Load Balancers, o runner `t3.small` e a observabilidade `t3.medium`, além dos IPv4 públicos de cada EC2 e dos ALBs (cada ALB tem um por zona). Somando, perto de **US$ 0,20 por hora, uns US$ 5 por dia esquecido**, descontados do orçamento do Learner Lab. A `t3.medium` da observabilidade é a mais cara: se pararem no meio e forem voltar outro dia, o `make destroy-ambientes`, o `make destroy-obs` e o `make destroy-runner`, mais um novo `make bootstrap` na volta, custam menos que deixar ligada. Nenhum dos três toca na VPC `fiap-lab`: a rede é compartilhada pelos labs e não cobra por hora.
 
 <details>
 <summary><b>💡 Clique para entender: o que cada alvo de destroy executa</b></summary>
@@ -2439,6 +2413,17 @@ rm -f ~/.trabalho-final-ai.env
 O `make destroy`, sem hífen, roda os três nessa mesma ordem, de uma vez. Ficam de pé, de propósito: a VPC `fiap-lab`, o bucket, o projeto no GitLab com o histórico de pipelines, o clone e a chave SSH.
 
 📚 Documentação oficial: [Runners API: Delete a runner by ID](https://docs.gitlab.com/api/runners/#delete-a-runner-by-id), para a remoção do runner; e [DeleteParameter](https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_DeleteParameter.html), para a remoção dos parâmetros no SSM.
+
+</blockquote>
+</details>
+
+<details>
+<summary><b>💡 Clique para entender: por que conferir na conta da AWS no fim</b></summary>
+<blockquote>
+
+As EC2 e os ALBs são o que cobra **por hora** na conta, sendo usados ou não: um ambiente esquecido de pé consome o orçamento do Learner Lab do grupo até alguém desligar. O `>> Pronto.` diz que o comando terminou; o 30.1 pergunta à própria conta se o taxímetro parou. A rede `fiap-lab`, o bucket e o projeto no GitLab ficam de propósito e não cobram por hora.
+
+📚 Documentação oficial: [aws ec2 describe-instances](https://docs.aws.amazon.com/cli/latest/reference/ec2/describe-instances.html) e [aws elbv2 describe-load-balancers](https://docs.aws.amazon.com/cli/latest/reference/elbv2/describe-load-balancers.html), para os filtros por nome e por estado usados no 30.1.
 
 </blockquote>
 </details>
@@ -2461,11 +2446,70 @@ Faltou o hífen: `make destroy ambientes` (com espaço) pede dois alvos, e o pri
 </blockquote>
 </details>
 
+<details>
+<summary><b>⚠ Se der erro: o 30.1 mostra <code>1</code> ou mais em vez de <code>0</code></b></summary>
+<blockquote>
+
+Algum destroy não terminou. Vejam o nome do que sobrou:
+
+```bash
+aws ec2 describe-instances --region us-east-1 --filters "Name=tag:Name,Values=qc-rag-*,qc-runner-tf-ai,qc-obs-tf-ai" "Name=instance-state-name,Values=pending,running,stopping,stopped" --query 'Reservations[].Instances[].Tags[?Key==`Name`].Value[]' --output text
+```
+
+`qc-rag-*` ou ALB sobrando: rodem de novo `make destroy-ambientes`. `qc-obs-tf-ai`: `make destroy-obs`. `qc-runner-tf-ai`: `make destroy-runner`. Depois repitam o 30.1. Não apaguem pelo console: o state no S3 sabe o que ainda existe.
+
+</blockquote>
+</details>
+
+---
+
+<a id="passo-31"></a>
+
+<dl>
+<dt>
+
+**31. Na máquina local, junte os prints e recompacte**
+
+</dt>
+<dd>
+
+Descompacte o zip baixado (Windows: botão direito → **Extrair tudo**; Mac: duplo clique), crie dentro da pasta extraída uma pasta `prints/`, coloque nela os 5 prints com os nomes exatos e compacte a pasta de novo (Windows: botão direito → **Enviar para → Pasta compactada**; Mac: botão direito → **Comprimir**). Esse zip final, com o código e `prints/`, é o que o grupo entrega, **um por grupo**, pelo canal de entrega da turma.
+
+Antes de compactar, abram cada print e confiram que nenhum mostra token (`glpat-`, `glrt-`), senha do Grafana ou chave AWS.
+
+</dd>
+
+</dl>
+
+---
+
+<a id="passo-32"></a>
+
+<dl>
+<dt>
+
+**32. Revogue o token do GitLab**
+
+</dt>
+<dd>
+
+O `make destroy-runner` usou o token pela última vez para apagar o runner no GitLab. No navegador, abra **[Personal access tokens](https://gitlab.com/-/user_settings/personal_access_tokens)** e clique em **Revoke** na linha `trabalho-final-ai-bootstrap`. O projeto e o código continuam no GitLab.
+
+Depois apague a cópia local do token:
+
+```bash
+rm -f ~/.trabalho-final-ai.env
+```
+
+</dd>
+</dl>
+
 ### Checkpoint
 
-- [ ] O zip final tem o código, o `.gitlab-ci.yml`, o `.gitignore` e `prints/` com os 4 prints, sem `.terraform/`, `build/`, state nem planos.
+- [ ] O zip final tem o código, o `.gitlab-ci.yml`, o `.gitignore` e `prints/` com os 5 prints, sem `.terraform/`, `build/`, state nem planos.
 - [ ] Nenhum print mostra token, senha ou chave.
 - [ ] `make destroy-ambientes`, `make destroy-obs` e `make destroy-runner` terminaram com `>> Pronto.` (rodem antes de revogar o token: o `destroy-runner` usa o token para apagar o runner no GitLab).
+- [ ] O 30.1 mostrou `0` e `0`, e o `prints/05-infra-destruida.png` está salvo.
 - [ ] O token `trabalho-final-ai-bootstrap` foi revogado e o `~/.trabalho-final-ai.env` apagado.
 
 ---
